@@ -122,8 +122,7 @@ RLIMIT_AS برای ASan تنظیم نشده، چون ASan فضای آدرس مج
 ```bash
 docker build -t patchlab .
 mkdir -p artifacts regressions
-chmod 777 artifacts regressions
-docker run --rm --network none --memory 1g --cpus 2 --pids-limit 128 \
+docker run --rm --user "$(id -u):$(id -g)" --network none --memory 1g --cpus 2 --pids-limit 128 \
   --cap-drop ALL --security-opt no-new-privileges --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=128m \
   -v "$PWD/artifacts:/lab/artifacts" -v "$PWD/regressions:/lab/regressions" patchlab

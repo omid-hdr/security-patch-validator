@@ -125,7 +125,8 @@ m=json.loads((p/'manifest.json').read_text())
 assert hashlib.sha256((p/'target').read_bytes()).hexdigest()==m['binary_sha256']
 os.chmod(p/'target',0o700)
 data=(p/'input.bin').read_bytes()
-argv=[x.replace('{binary}',str(p/'target')).replace('{input_file}',str(p/'input.bin')).replace('{input}',data.decode('utf-8')) for x in m['run_argv']]
+text=data.decode('utf-8') if m['mode']=='argv' else ''
+argv=[x.replace('{binary}',str(p/'target')).replace('{input_file}',str(p/'input.bin')).replace('{input}',text) for x in m['run_argv']]
 env=dict(m['environment'])
 try:
  r=subprocess.run(argv,cwd=p,env=env,input=data if m['mode']=='stdin' else None,timeout=15)
