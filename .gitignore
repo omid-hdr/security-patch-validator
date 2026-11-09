@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+artifacts/
+.venv/
+*.key
+.env
+regressions/unseen-*/
+

@@ -1,0 +1,30 @@
+{
+  "name": "name-length",
+  "sources": {
+    "base": "targets/name-length/base.c",
+    "correct": "targets/name-length/correct.c",
+    "incomplete": "targets/name-length/incomplete.c",
+    "regression": "targets/name-length/regression.c"
+  },
+  "builds": {
+    "normal": ["gcc", "-std=c11", "-g", "-O0", "-fno-omit-frame-pointer", "-fno-pie", "-no-pie", "-fstack-protector-strong", "-Wl,-z,relro,-z,now", "{source}", "-o", "{binary}"],
+    "sanitized": ["gcc", "-std=c11", "-g", "-O0", "-fno-omit-frame-pointer", "-fno-pie", "-no-pie", "-fstack-protector-strong", "-Wl,-z,relro,-z,now", "-fsanitize=address,undefined", "{source}", "-o", "{binary}"]
+  },
+  "run": {"argv": ["{binary}", "{input}"], "mode": "argv", "timeout": 15, "replays": 3},
+  "expected_error": {"type": "stack-buffer-overflow", "function": "main"},
+  "security_tests": [
+    {"id": "original-long", "input": "AAAAAAAAAAAAAAAAAAAA", "expected_exit": 2, "expected_stdout": ""},
+    {"id": "boundary-bypass", "input": "AAAAAAAAAAAAAAAA", "expected_exit": 2, "expected_stdout": ""}
+  ],
+  "functional_tests": [
+    {"id": "empty", "input": "", "expected_exit": 0, "expected_stdout": "0\n"},
+    {"id": "short", "input": "Ali", "expected_exit": 0, "expected_stdout": "3\n"},
+    {"id": "length-eight", "input": "ABCDEFGH", "expected_exit": 0, "expected_stdout": "8\n"},
+    {"id": "maximum-valid", "input": "ABCDEFGHIJKLMNO", "expected_exit": 0, "expected_stdout": "15\n"},
+    {"id": "utf8-valid", "input": "سلام", "expected_exit": 0, "expected_stdout": "8\n"}
+  ],
+  "invalid_tests": [
+    {"id": "very-long", "input_repeat": ["B", 256], "expected_exit": 2, "expected_stdout": ""}
+  ],
+  "hardening_required": {"nx": true, "pie": false, "relro": "full", "canary_evidence": true}
+}

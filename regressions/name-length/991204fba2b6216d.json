@@ -1,0 +1,13 @@
+{
+  "id": "991204fba2b6216d",
+  "hex": "41414141414141414141414141414141",
+  "signature": {
+    "error_type": "stack-buffer-overflow",
+    "functions": [
+      "main",
+      "main"
+    ]
+  },
+  "expected_exit": 2,
+  "expected_stdout": ""
+}

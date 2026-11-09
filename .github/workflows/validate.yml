@@ -1,0 +1,24 @@
+name: Validate security patches
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc binutils python3
+      - name: Validate all scenarios and unseen inputs
+        run: python3 scripts/acceptance.py
+      - name: Upload reports and reproducer bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-evidence
+          path: artifacts/
+          retention-days: 14
