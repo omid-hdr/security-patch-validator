@@ -1,0 +1,67 @@
+v0.12.10
+
+- Make path splitting algorithm UNC-aware (#135)
+- Update utarray.h to 2.3.0 (#137)
+- Miscellaneous fixes.
+
+v0.12.9
+
+- lib/ec_glob: Fix potentially uninitialized variable warning.
+
+v0.12.8
+
+- Bump CMake requirement to 3.16.3
+- lib/ec_glob: plug leak of nums utarray
+- Clarify the steps of building from source.
+
+v0.12.7
+
+- Fix pointer overflow in STRING_CAT.
+- Fix a few more stack buffer overflows.
+- Add license for FindPcre2 from LuaDist.
+- Document and CI fixes.
+
+v0.12.6
+
+- Update property key, value length limits per spec change.
+- Fix potential buffer overflow in ec_glob.
+- CI fixes.
+- Fix paths in pkg-config file with absolute CMAKE_INSTALL_*.
+- Fix cross compiling for Windows.
+
+v0.12.5
+
+- Fix memory leak in editorconfig_parse() which would occur if no .editorconfig is found.
+
+v0.12.4
+
+- Add Windows build scripts.
+- Updated AppVeyor to use new scripts.
+
+v0.12.3
+
+- Bump required minimum cmake version to 2.8.12.
+- Support pcre2 and drop support for pcre.
+
+v0.12.2
+
+- Add support for pkgconfig.
+- Memory leaks and crash fixes.
+- Improve error messages.
+- Add CI on AppVeyor.
+
+v0.12.1
+
+- Fix an issue that libeditorconfig calls exit()---this should not be
+  called in a library function. (#12)
+- Bump required minimum cmake version to 2.8.7.
+- Use GNU installation dirs for OS portability. (#13)
+
+v0.12.0
+
+New dependency: pcre
+
+- The glob engine is rewritten to take the advantages of pcre;
+- support nested curly braces;
+- number range match support (e.g. {3...120} matches integers from 3 to 120);
+- slashes in brackets are considered special.

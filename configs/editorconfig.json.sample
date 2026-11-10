@@ -1,0 +1,89 @@
+{
+  "_comment": "Sample config for the editorconfig target. Role 4 owns the schema; this is the content from Role 1.",
+  "name": "editorconfig",
+  "target_type": "cmake-multifile",
+  "sources": {
+    "base": "targets/editorconfig/base",
+    "correct": "targets/editorconfig/correct",
+    "incomplete": "targets/editorconfig/incomplete",
+    "regression": "targets/editorconfig/regression"
+  },
+  "build": {
+    "type": "cmake",
+    "build_dir": "{source}/build-{flavor}",
+    "normal": {
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_C_FLAGS=-g -O0 -fno-omit-frame-pointer -fno-pie -no-pie -fstack-protector-strong -Wl,-z,relro,-z,now"
+      ],
+      "make_targets": ["editorconfig_bin"]
+    },
+    "sanitized": {
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_C_FLAGS=-g -O0 -fno-omit-frame-pointer -fno-pie -no-pie -fstack-protector-strong -fsanitize=address,undefined -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0",
+        "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined -fno-pie -no-pie",
+        "-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address,undefined"
+      ],
+      "make_targets": ["editorconfig_bin"]
+    }
+  },
+  "binary": {
+    "normal": "{build_dir}/bin/editorconfig",
+    "sanitized": "{build_dir}/bin/editorconfig"
+  },
+  "library_path": "{build_dir}/lib",
+  "run": {
+    "argv": ["{binary}", "{input}"],
+    "mode": "argv",
+    "timeout": 30,
+    "replays": 3,
+    "env": {"LD_LIBRARY_PATH": "{library_path}"}
+  },
+  "expected_error": {
+    "type": "stack-buffer-overflow",
+    "function": "ec_glob",
+    "file": "src/lib/ec_glob.c",
+    "line": 100
+  },
+  "security_tests": [
+    {
+      "id": "poc-A-original",
+      "poc_script": "python3 targets/editorconfig/scripts/make_poc.py --root targets/editorconfig/poc-trees/A --variant A",
+      "trigger_finder": "python3 -c \"import os;[print(os.path.join(r,f)) for r,_,fs in os.walk('targets/editorconfig/poc-trees/A') for f in fs if f=='trigger.py']\" | head -1",
+      "expected_exit": "abort_signal",
+      "expected_sanitizer": "AddressSanitizer"
+    },
+    {
+      "id": "poc-B-bypass",
+      "poc_script": "python3 targets/editorconfig/scripts/make_poc.py --root targets/editorconfig/poc-trees/B --variant B",
+      "trigger_finder": "python3 -c \"import os;[print(os.path.join(r,f)) for r,_,fs in os.walk('targets/editorconfig/poc-trees/B') for f in fs if f=='trigger.py']\" | head -1",
+      "expected_exit": "abort_signal",
+      "expected_sanitizer": "AddressSanitizer"
+    }
+  ],
+  "functional_tests": [
+    {
+      "id": "brace-match-foo",
+      "tree": "targets/editorconfig/func-trees/brace",
+      "trigger": "foo.py",
+      "expected_exit": 0,
+      "expected_stdout": "indent_style=space\n"
+    },
+    {
+      "id": "brace-nomatch-baz",
+      "tree": "targets/editorconfig/func-trees/brace",
+      "trigger": "baz.py",
+      "expected_exit": 0,
+      "expected_stdout": ""
+    }
+  ],
+  "functional_oracle": "python3 targets/editorconfig/tests/run_official_glob.py --binary {binary} --library {library_path} --test-dir targets/editorconfig/tests/official-glob",
+  "hardening_required": {
+    "nx": true,
+    "pie": false,
+    "relro": "full",
+    "canary_evidence": true
+  },
+  "unseen_patches_dir": "targets/editorconfig/unseen-patches"
+}

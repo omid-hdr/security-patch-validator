@@ -1,0 +1,17 @@
+diff --git a/src/lib/ec_glob.c b/src/lib/ec_glob.c
+index 18f98c1..a15a9db 100644
+--- a/src/lib/ec_glob.c
++++ b/src/lib/ec_glob.c
+@@ -97,7 +97,11 @@ int ec_glob(const char *pattern, const char *string)
+     UT_array *                nums;     /* number ranges */
+     int                       ret = 0;
+ 
+-    strcpy(l_pattern, pattern);
++    /* Bounds-checked copy via snprintf — equivalent security guarantee
++       to the official memcpy fix, but a different code path. */
++    if (strlen(pattern) >= sizeof(l_pattern))
++        return -1;
++    snprintf(l_pattern, sizeof(l_pattern), "%s", pattern);
+     p_pcre = pcre_str + 1;
+     pcre_str_end = pcre_str + 2 * PATTERN_MAX;
+ 

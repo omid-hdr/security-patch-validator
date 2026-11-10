@@ -6,3 +6,12 @@ artifacts/
 .env
 regressions/unseen-*/
 
+# Role 1 editorconfig target: source trees are committed, build outputs and
+# generated trees are not. These should be regenerated via:
+#   targets/editorconfig/scripts/build_all.sh
+#   targets/editorconfig/scripts/run_all.sh
+targets/editorconfig/*/build-*/
+targets/editorconfig/poc-trees/
+targets/editorconfig/func-trees/
+targets/editorconfig/evidence/
+**/.git/

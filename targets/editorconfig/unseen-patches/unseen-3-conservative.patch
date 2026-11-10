@@ -1,0 +1,20 @@
+diff --git a/src/lib/ec_glob.c b/src/lib/ec_glob.c
+index 18f98c1..5aa34d7 100644
+--- a/src/lib/ec_glob.c
++++ b/src/lib/ec_glob.c
+@@ -97,7 +97,14 @@ int ec_glob(const char *pattern, const char *string)
+     UT_array *                nums;     /* number ranges */
+     int                       ret = 0;
+ 
+-    strcpy(l_pattern, pattern);
++    /* Conservative guard: reject patterns longer than 8000 bytes
++       (smaller than sizeof(l_pattern)=8194 to add a safety margin).
++       Functionally this is a stricter fix than the official one:
++       it rejects some valid patterns between 8001 and 8193 bytes
++       that the official fix would accept. */
++    if (strlen(pattern) > 8000)
++        return -1;
++    memcpy(l_pattern, pattern, strlen(pattern) + 1);
+     p_pcre = pcre_str + 1;
+     pcre_str_end = pcre_str + 2 * PATTERN_MAX;
+ 
