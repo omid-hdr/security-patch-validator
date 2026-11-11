@@ -1,39 +1,52 @@
-# اعتبارسنجی خودکار وصلهٔ امنیتی — هدف آموزشی C
+# اعتبارسنجی خودکار وصلهٔ امنیتی — چند هدف
 
-این مخزن یک پیاده‌سازی اجرایی برای **یک هدف آموزشی** از پروژهٔ امنیت داده و شبکه است.
-چهار نسخهٔ مستقل از برنامهٔ طول نام، ابزار قابل پیکربندی و شواهد بازتولید دارد.
-هدف واقعی دوم جزو این مخزن نیست؛ تأیید مدرس دربارهٔ انتخاب این هدف و معیارهای ارزیابی همچنان لازم است.
+این مخزن یک پیاده‌سازی اجرایی برای پروژهٔ اعتبارسنجی خودکار وصله‌های امنیتی است.
+دو هدف بررسی می‌شود:
+
+| هدف | نوع | آسیب‌پذیری | شکل بیلد | config |
+|---|---|---|---|---|
+| `name-length` | آموزشی، تک‌فایلی C | سرریز بافر `strcpy` | `gcc <file>.c` | `configs/name-length.json` |
+| `editorconfig` | واقعی، کتابخانهٔ C (CVE-2026-40489) | سرریز `l_pattern` در `ec_glob` | `cmake + make` | `configs/editorconfig.json` |
+
+هر هدف دارای چهار نسخه است: `base`، `correct`، `incomplete`، `regression`.
+برای `editorconfig`، سه وصلهٔ ندیده نیز در `targets/editorconfig/unseen-patches/` آمادهٔ جلسهٔ دفاع است.
 
 ## اجرای سریع در اوبونتو
 
-پیش‌نیازها: Linux x86_64، Python 3.10+، GCC، Git و binutils/readelf. وابستگی Python خارجی ندارد.
+پیش‌نیازها: Linux x86_64، Python 3.10+، GCC، Git و binutils/readelf. برای هدف `editorconfig` نیاز به cmake و libpcre2-dev هم هست. وابستگی Python خارجی ندارد.
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y gcc binutils python3 git
-git clone git@github.com:omid-hdr/security-patch-validator.git
+sudo apt-get install -y gcc binutils python3 git cmake make libpcre2-dev
+git clone https://github.com/omid-hdr/security-patch-validator.git
 cd security-patch-validator
-python3 scripts/acceptance.py
+
+# آزمون پذیرش هر دو هدف:
+python3 scripts/acceptance.py             # name-length
+python3 scripts/acceptance_editorconfig.py  # editorconfig
 ```
 
-اگر ابزارها نصب‌اند، اجرای خود پروژه به sudo احتیاج ندارد. در پایان باید `ALL ACCEPTANCE CHECKS PASSED` ببینید.
-آزمون پذیرش، نتیجهٔ مورد انتظار سه سناریو، دو وصلهٔ ندیده، ظرفیت بافر متفاوت، نبود خطای پایه و خطاهای پیکربندی/ساخت را می‌سنجد.
-خروجی‌ها در `artifacts/acceptance/` هستند و خودکار وارد Git نمی‌شوند.
+در پایان باید `ALL ACCEPTANCE CHECKS PASSED` و `EDITORCONFIG ACCEPTANCE CHECKS PASSED` ببینید.
+خروجی‌ها در `artifacts/acceptance/` و `artifacts/acceptance-editorconfig/` هستند و خودکار وارد Git نمی‌شوند.
 
-## یک مقایسهٔ واقعی
+## یک مقایسهٔ واقعی برای هر هدف
 
 ```bash
-python3 validate.py --patched correct --out artifacts/correct
-echo $?
-python3 validate.py --patched incomplete --out artifacts/incomplete
-echo $?
-python3 validate.py --patched regression --out artifacts/regression
-echo $?
+# هدف name-length:
+python3 validate.py --patched correct --out artifacts/nl-correct;     echo $?
+python3 validate.py --patched incomplete --out artifacts/nl-incomplete; echo $?
+python3 validate.py --patched regression --out artifacts/nl-regression; echo $?
+# کدهای مورد انتظار: 0، 10، 20
+
+# هدف editorconfig:
+python3 validate.py --config configs/editorconfig.json --patched correct --out artifacts/ec-correct;     echo $?
+python3 validate.py --config configs/editorconfig.json --patched incomplete --out artifacts/ec-incomplete; echo $?
+python3 validate.py --config configs/editorconfig.json --patched regression --out artifacts/ec-regression; echo $?
+# کدهای مورد انتظار: 0، 10، 20
 ```
 
-کدهای مورد انتظار به‌ترتیب ۰، ۱۰ و ۲۰ هستند. برچسب `--patched` فقط مسیر منبع در پیکربندی را انتخاب می‌کند؛ تعیین‌کنندهٔ نتیجه نیست.
-برای وصله‌ای با نام تازه، همان تنظیمات و آزمون‌ها را نگه دارید:
-
+برچسب `--patched` فقط کلید منبع در پیکربندی را انتخاب می‌کند؛ تعیین‌کنندهٔ نتیجه نیست.
+برای وصلهٔ نام تازه (تک‌فایلی):
 ```bash
 python3 validate.py --patched-source /path/to/unseen.c --out artifacts/unseen
 ```
@@ -49,7 +62,7 @@ python3 validate.py --patched-source /path/to/unseen.c --out artifacts/unseen
 اولویت هم‌زمانی: `30 > 40 > 20 > 10 > 0`. وضعیت امنیت و عملکرد جداگانه در JSON حفظ می‌شود.
 کد خروج **برنامهٔ هدف** با کد خروج اعتبارسنج فرق دارد؛ خروج ۲ از هدف برای نام بیش‌ازحد بلند صحیح است.
 
-## قرارداد هدف، مستقل از وصله
+## قرارداد هدف، مستقل از وصله (name-length)
 
 برنامه دقیقاً یک آرگومان می‌گیرد. طول **بایتی UTF-8** از صفر تا ۱۵ معتبر است: خروج ۰ و چاپ طول به‌اضافهٔ newline.
 طول ۱۶ و بیشتر نامعتبر است: خروج ۲ بدون خروجی. نبود آرگومان/آرگومان اضافه: خروج ۱.
