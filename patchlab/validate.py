@@ -7,7 +7,8 @@ import subprocess
 import sys
 
 from .runner import controlled_env, execute, same_error, sha256
-from .evidence import bundle, correlate, hardening, minimize
+from .evidence import (bundle, correlate, hardening, minimize,
+                       minimize_poc_tree, project_correlate, project_bundle)
 
 ROOT = Path(__file__).resolve().parents[1]
 STATUS = {0: "PASS", 10: "VULN_REMAINS", 20: "FUNC_REGRESSION",
@@ -129,10 +130,33 @@ def validate(config_path, patched, output, base="base", patched_source=None, bas
         corpus = ROOT / "regressions" / c["name"]
         corpus.mkdir(parents=True, exist_ok=True)
         generated = [json.loads(p.read_text()) for p in corpus.glob("*.json")]
-        # Corpus entries are security replays, not an oracle for valid behavior.
-        security_cases = c["security_tests"] + [dict(id="saved-" + x["id"], hex=x["hex"],
-            expected_exit=x["expected_exit"], expected_stdout=x["expected_stdout"]) for x in generated]
-        report["loaded_regression_tests"] = len(generated)
+        saved_cases = []
+        for x in generated:
+            if "poc_script" in x:
+                # Directory-PoC corpus entry (multi-file target shape):
+                # rebuild the tree on THIS machine via the generator
+                # variant — no absolute paths are ever executed.
+                saved_cases.append(dict(
+                    id="saved-" + x["id"],
+                    poc_script=x["poc_script"],
+                    trigger_finder=x["trigger_finder"],
+                    expected_exit=x.get("expected_exit", 134),
+                    expected_stdout=x.get("expected_stdout", "")))
+            elif "hex" in x:
+                # Byte-level entry. Some old corpus files stored the
+                # ABSOLUTE TRIGGER PATH as hex — such a "test" would run
+                # a non-existent path on any other machine, so skip them
+                # (they are regenerated cleanly).
+                payload = bytes.fromhex(x["hex"])
+                if payload.startswith(b"/home/") or payload.startswith(b"/tmp/") \
+                        or payload.startswith(b"/Users/"):
+                    continue
+                saved_cases.append(dict(
+                    id="saved-" + x["id"], hex=x["hex"],
+                    expected_exit=x.get("expected_exit", 2),
+                    expected_stdout=x.get("expected_stdout", "")))
+        security_cases = list(c["security_tests"]) + saved_cases
+        report["loaded_regression_tests"] = len(saved_cases)
         input_counter = 0
 
         def run_case(version, build, data, label):
@@ -228,15 +252,25 @@ def validate(config_path, patched, output, base="base", patched_source=None, bas
                     flags["security_issue"] = True
                 finding_id = f"finding-{len(report['findings']) + 1}"
 
-                def predicate(candidate):
-                    try:
-                        a = run_case(version, "sanitized", candidate, "minimize")
-                        return same_error(sig, a["signature"]) and not a["timed_out"]
-                    except (UnicodeDecodeError, ValueError):
-                        return False
-
-                small, min_log = minimize(data, predicate) if stable else (data, {"one_minimal": False, "calls": 0})
-                min_replays = [run_case(version, "sanitized", small, "minimized-replay") for _ in range(3)]
+                # Minimization (Role 3). Byte-level ddmin for plain byte
+                # inputs; the structural variant minimization for
+                # directory PoCs (multi-file targets) lives in
+                # patchlab/minimizer.py and is wired up by the
+                # multi-file orchestrator branch.
+                if stable:
+                    def predicate(candidate):
+                        try:
+                            a = run_case(version, "sanitized", candidate, "minimize")
+                            return same_error(sig, a["signature"]) and not a["timed_out"]
+                        except (UnicodeDecodeError, ValueError):
+                            return False
+                    small, min_log = minimize(data, predicate)
+                else:
+                    small = data
+                    min_log = {"one_minimal": False, "calls": 0,
+                               "reason": "unstable input; minimization skipped"}
+                min_replays = [run_case(version, "sanitized", small, "minimized-replay")
+                               for _ in range(3)]
                 if not all(same_error(sig, r["signature"]) and not r["timed_out"] for r in min_replays):
                     flags["inconclusive"] = True
                 minimized_comparison = []
@@ -268,6 +302,9 @@ def validate(config_path, patched, output, base="base", patched_source=None, bas
                     original_size=len(data), minimized_size=len(small), minimized_replays=min_replays,
                     minimized_comparison=minimized_comparison,
                     patch_correlation=correlation))
+                # Reproducer bundle — single-file shape here; the
+                # multi-file bundle (project_bundle) is wired up by the
+                # multi-file orchestrator branch.
                 bkey = f"{version}/sanitized"
                 bundle(directory / "bundle", sources[version], binaries[version, "sanitized"], small,
                     report["builds"][bkey]["command"], min_replays[0],
@@ -275,6 +312,10 @@ def validate(config_path, patched, output, base="base", patched_source=None, bas
                          dirty=report["provenance"]["dirty"], signature=sig,
                          compiler=subprocess.check_output([c["builds"]["sanitized"][0], "--version"], text=True).splitlines()[0]),
                     c["run"]["mode"], c["run"]["argv"])
+
+                # Regression corpus (Role 3): byte inputs store the
+                # minimized bytes. (Directory-PoC entries with poc_script
+                # are produced by the multi-file target support.)
                 if version == "base" and stable:
                     ident = __import__("hashlib").sha256(small).hexdigest()[:16]
                     entry = dict(id=ident, hex=small.hex(), signature=sig,
