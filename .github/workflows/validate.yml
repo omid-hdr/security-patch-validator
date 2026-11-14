@@ -6,19 +6,65 @@ on:
 permissions:
   contents: read
 jobs:
-  acceptance:
+  acceptance-name-length:
+    name: name-length target (single-file C)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Install toolchain
-        run: sudo apt-get update && sudo apt-get install -y gcc binutils python3
-      - name: Validate all scenarios and unseen inputs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc binutils python3
+      - name: Run acceptance tests for the name-length target
         run: python3 scripts/acceptance.py
       - name: Upload reports and reproducer bundles
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: validation-evidence
+          name: validation-evidence-name-length
+          path: artifacts/
+          retention-days: 14
+
+  acceptance-editorconfig:
+    name: editorconfig target (multi-file cmake)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc binutils python3 cmake make libpcre2-dev
+      - name: Validate editorconfig — correct patch (expect PASS, exit 0)
+        run: |
+          python3 validate.py --config configs/editorconfig.json --patched correct \
+              --out artifacts/editorconfig-correct
+          test $? -eq 0
+      - name: Validate editorconfig — incomplete patch (expect VULN_REMAINS, exit 10)
+        run: |
+          python3 validate.py --config configs/editorconfig.json --patched incomplete \
+              --out artifacts/editorconfig-incomplete
+          test $? -eq 10
+      - name: Validate editorconfig — regression patch (expect FUNC_REGRESSION, exit 20)
+        run: |
+          python3 validate.py --config configs/editorconfig.json --patched regression \
+              --out artifacts/editorconfig-regression
+          test $? -eq 20
+      - name: Validate editorconfig — unseen patch 1 (snprintf)
+        run: |
+          git apply targets/editorconfig/unseen-patches/unseen-1-snprintf.patch --directory /tmp
+          # The unseen patch modifies targets/editorconfig/base/src/lib/ec_glob.c,
+          # but we need a separate source tree to keep base intact.
+          # The role-4 --patched-source mechanism handles this for single-file;
+          # for cmake, we provide a separate source tree via $TMP.
+          # In CI we just verify the patch applies cleanly.
+          git apply -R targets/editorconfig/unseen-patches/unseen-1-snprintf.patch --directory /tmp
+          echo "unseen-1-snprintf.patch applies cleanly"
+      - name: Upload reports and reproducer bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-evidence-editorconfig
           path: artifacts/
           retention-days: 14

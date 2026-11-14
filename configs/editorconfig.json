@@ -1,0 +1,76 @@
+{
+  "name": "editorconfig",
+  "build_type": "cmake",
+  "sources": {
+    "base": "targets/editorconfig/base",
+    "correct": "targets/editorconfig/correct",
+    "incomplete": "targets/editorconfig/incomplete",
+    "regression": "targets/editorconfig/regression"
+  },
+  "builds": {
+    "normal": {
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_C_FLAGS=-g -O0 -fno-omit-frame-pointer -fno-pie -no-pie -fstack-protector-strong -Wl,-z,relro,-z,now"
+      ],
+      "make_targets": ["editorconfig_bin"]
+    },
+    "sanitized": {
+      "cmake_flags": [
+        "-DCMAKE_BUILD_TYPE=Debug",
+        "-DCMAKE_C_FLAGS=-g -O0 -fno-omit-frame-pointer -fno-pie -no-pie -fstack-protector-strong -fsanitize=address,undefined -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0",
+        "-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address,undefined -fno-pie -no-pie",
+        "-DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=address,undefined"
+      ],
+      "make_targets": ["editorconfig_bin"]
+    },
+    "binary_name": "editorconfig"
+  },
+  "run": {
+    "argv": ["{binary}", "{input}"],
+    "mode": "argv",
+    "timeout": 30,
+    "replays": 3
+  },
+  "expected_error": {
+    "type": "stack-buffer-overflow",
+    "function": "ec_glob"
+  },
+  "security_tests": [
+    {
+      "id": "poc-A-original-8201",
+      "poc_script": "python3 targets/editorconfig/scripts/make_poc.py --root $POC_ROOT --variant A",
+      "trigger_finder": "python3 -c \"import os;[print(os.path.join(r,f)) for r,_,fs in os.walk('$POC_ROOT') for f in fs if f=='trigger.py']\" | head -1",
+      "expected_exit": 134,
+      "expected_stdout": ""
+    },
+    {
+      "id": "poc-B-bypass-8194",
+      "poc_script": "python3 targets/editorconfig/scripts/make_poc.py --root $POC_ROOT --variant B",
+      "trigger_finder": "python3 -c \"import os;[print(os.path.join(r,f)) for r,_,fs in os.walk('$POC_ROOT') for f in fs if f=='trigger.py']\" | head -1",
+      "expected_exit": 134,
+      "expected_stdout": ""
+    }
+  ],
+  "functional_tests": [
+    {
+      "id": "no-args-exit-1",
+      "input": "",
+      "expected_exit": 1,
+      "expected_stdout": ""
+    },
+    {
+      "id": "brace-alternation-match",
+      "poc_script": "mkdir -p $POC_ROOT && printf '[{foo,bar}.py]\\nindent_style = space\\nindent_size = 4\\n' > $POC_ROOT/.editorconfig && echo \"print('hello')\" > $POC_ROOT/foo.py",
+      "trigger_finder": "echo \"$POC_ROOT/foo.py\"",
+      "expected_exit": 0,
+      "expected_stdout_contains": "indent_style=space"
+    }
+  ],
+  "hardening_required": {
+    "nx": true,
+    "pie": false,
+    "relro": "full",
+    "canary_evidence": true
+  }
+}
