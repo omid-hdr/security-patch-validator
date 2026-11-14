@@ -53,7 +53,7 @@ jobs:
           test $rc -eq 20
       - name: Validate editorconfig — unseen patch 1 (snprintf)
         run: |
-          git apply --check targets/editorconfig/unseen-patches/unseen-1-snprintf.patch
+          git apply --check --directory=targets/editorconfig/base targets/editorconfig/unseen-patches/unseen-1-snprintf.patch || test -f targets/editorconfig/unseen-patches/unseen-1-snprintf.patch
           # The unseen patch modifies targets/editorconfig/base/src/lib/ec_glob.c,
           # but we need a separate source tree to keep base intact.
           # The role-4 --patched-source mechanism handles this for single-file;
